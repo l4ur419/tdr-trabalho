@@ -1,0 +1,29 @@
+Lista 03 --- dados sorteados para o login l4ur419
+
+Tema: Leite entregue pelas fazendas de uma cooperativa
+Unidade de observação: fazenda
+
+Arquivos
+
+  leite_2023.csv, leite_2024.csv, leite_2025.csv
+      Uma linha por unidade e uma coluna por mês do ano. A coluna
+      codigo identifica a unidade, e as colunas jan a dez trazem o
+      valor medido: leite entregue no mês, em milhares de litros.
+      Mês sem registro aparece como "-".
+
+  cadastro.csv
+      Uma linha por unidade, com as colunas:
+        codigo        identificador da unidade, o mesmo das medições
+        nome          nome da unidade
+        sistema       categoria: Confinado, Semiconfinado ou Pasto
+        vacas         porte: vacas em lactação
+
+Conferência
+
+  unidades no cadastro:   11
+  unidades com medições:  10
+
+  ano    meses sem registro    soma dos valores registrados
+  2023                    2                         18870,1
+  2024                    5                         19673,2
+  2025                    2                         21661,0

@@ -1,0 +1,173 @@
+---
+title: "Análise - Leite entregue pelas fazendas de uma cooperativa"
+author: "Laura Nicoletti"
+lang: pt-BR
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: true
+---
+## Exercício 1 
+
+```{r}
+#| message: false
+#| warning: false
+library(tidyverse)
+
+# Ler o arquivo de cadastro
+cadastro <- read_delim(
+  "dados/cadastro.csv",
+  delim = ";",
+  locale = locale(encoding = "ISO-8859-1")
+)
+
+# Imprimir o cadastro no relatório
+cadastro
+
+# Ler o arquivo anual (2023)
+leite_2023 <- read_delim(
+  "dados/leite_2023.csv",
+  delim = ";",
+  locale = locale(decimal_mark = ","),
+  na = "-",
+  col_types = cols(
+    codigo = col_character(),
+    .default = col_double()
+  )
+)
+
+# Imprimir a tabela anual no relatório
+leite_2023
+```
+
+## Exercício 2
+
+```{r}
+# Transformar a tabela para o formato longo e ajustar os meses
+leite_longo <- leite_2023 |>
+  pivot_longer(
+    cols = jan:dez, 
+    names_to = "mes", 
+    values_to = "leite"
+  ) |>
+  mutate(
+    mes = factor(mes, levels = c("jan", "fev", "mar", "abr", "mai", "jun", 
+                                 "jul", "ago", "set", "out", "nov", "dez"))
+  )
+
+# Imprimir a tabela resultante para verificação no HTML
+leite_longo
+
+# Contar o número de linhas da tabela longa
+nrow(leite_longo)
+
+# Contar a quantidade de valores ausentes (NAs)
+sum(is.na(leite_longo$leite))
+```
+
+## Exercício 3
+
+```{r}
+# Juntar as tabelas mantendo todas as linhas da tabela longa
+tabela_junta <- left_join(
+  leite_longo, 
+  cadastro, 
+  by = "codigo",
+  relationship = "many-to-one" 
+) |>
+  # Criar a medida relativa
+  mutate(litros_por_vaca = leite / vacas)
+
+# Imprimir a tabela junta
+tabela_junta
+
+# Conferir que a junção não mudou o número de linhas
+nrow(tabela_junta)
+
+# 3. Descobrir qual unidade do cadastro não tem medição
+unidade_sem_medicao <- anti_join(cadastro, leite_longo, by = "codigo")
+
+# Imprimir a unidade sem medição
+unidade_sem_medicao
+```
+
+## Exercício 4
+
+**Decisão sobre valores ausentes:** Para o tema de produção de leite, considerei que um mês sem registro representa falta de dados (e não necessariamente que a fazenda produziu zero litros). Por isso, optei por ignorar os NAs matematicamente usando o argumento `na.rm = TRUE` dentro das funções. Essa decisão afeta o cálculo das colunas de "total do ano" e "média mensal", mas **não afeta** a contagem de meses com registro, que avalia diretamente se a célula estava preenchida ou vazia.
+
+O total geral registrado no ano foi de `r format(sum(tabela_junta$leite, na.rm = TRUE), big.mark = ".", decimal.mark = ",")`.
+
+```{r}
+# 1. Resumo por unidade (fazenda)
+resumo_unidade <- tabela_junta |>
+  group_by(codigo, nome, sistema) |>
+  summarise(
+    meses_com_registro = sum(!is.na(leite)), # Conta quantos meses não são NA
+    total_ano = sum(leite, na.rm = TRUE),
+    media_relativa = mean(litros_por_vaca, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(media_relativa)) # Ordena da maior para a menor média
+
+# Imprimir o resumo por unidade
+resumo_unidade
+
+# 2. Resumo por categoria (sistema)
+resumo_categoria <- tabela_junta |>
+  group_by(sistema) |>
+  summarise(
+    unidades = n_distinct(codigo), # Conta fazendas únicas por sistema
+    total_ano = sum(leite, na.rm = TRUE),
+    media_relativa = mean(litros_por_vaca, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Imprimir o resumo por categoria
+resumo_categoria
+```
+
+## Exercício 5 
+
+A cadeia de funções dos exercícios anteriores serviu sem nenhuma alteração. Isso aconteceu porque no Exercício 2 foi explicitado para pivotar especificamente as colunas de `jan:dez`. Se fosse usado uma regra de exclusão genérica, o `pivot_longer()` teria falhado agora, pois tentaria colocar as novas colunas `origem` e `ano` na mesma coluna dos meses.
+
+```{r}
+# Listar apenas os arquivos anuais (ignorando o cadastro que está na mesma pasta)
+arquivos_anuais <- list.files("dados", pattern = "leite_[0-9]{4}\\.csv", full.names = TRUE)
+
+# Dar nome aos elementos da lista para que o map() consiga registrar a origem
+arquivos_nomeados <- set_names(arquivos_anuais, arquivos_anuais)
+
+# Ler os arquivos com map() e empilhar em uma tabela só
+tabela_empilhada <- map_dfr(arquivos_nomeados, ~read_delim(.x,
+  delim = ";",
+  locale = locale(decimal_mark = ","),
+  na = "-",
+  col_types = cols(codigo = col_character(), .default = col_double())
+), .id = "origem") |>
+  # Criar a coluna 'ano' extraindo o número do nome do arquivo
+  mutate(ano = parse_number(origem))
+
+# Aplicar a mesma cadeia dos exercícios 2 e 3 à tabela empilhada
+tabela_todos_anos <- tabela_empilhada |>
+  pivot_longer(
+    cols = jan:dez,
+    names_to = "mes",
+    values_to = "leite"
+  ) |>
+  mutate(
+    mes = factor(mes, levels = c("jan", "fev", "mar", "abr", "mai", "jun", 
+                                 "jul", "ago", "set", "out", "nov", "dez"))
+  ) |>
+  left_join(cadastro, by = "codigo", relationship = "many-to-one") |>
+  mutate(litros_por_vaca = leite / vacas)
+
+# Criar a tabela de apresentação 
+tabela_apresentacao <- tabela_todos_anos |>
+  group_by(sistema, ano) |>
+  summarise(total_leite = sum(leite, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = ano, values_from = total_leite)
+
+# Imprimir a tabela final para a entrega
+tabela_apresentacao
+```
