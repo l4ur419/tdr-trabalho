@@ -10,7 +10,7 @@ meses <- c(
   "jul", "ago", "set", "out", "nov", "dez"
 )
 
-# 1. Leitura 
+# 1. Leitura
 
 # Login do GitHub para o qual os dados foram sorteados, tirado da primeira
 # linha do LEIA-ME.txt ("... dados sorteados para o login <login>").
@@ -59,7 +59,7 @@ ler_anuais <- function(arquivos) {
     mutate(ano = as.integer(parse_number(origem)), .after = origem)
 }
 
-# 2. Arrumação 
+# 2. Arrumação
 
 # Forma longa (uma linha por unidade, ano e mês), mês como fator na ordem do
 # calendário, junção ao cadastro com a cardinalidade conferida e a medida
@@ -91,7 +91,7 @@ achar_sem_medicao <- function(cadastro, leite_bruto) {
   anti_join(cadastro, leite_bruto, by = "codigo")
 }
 
-# 3. Conferência 
+# 3. Conferência
 
 # Por ano: unidades com medição, linhas da tabela longa, meses sem registro e
 # soma dos valores registrados, para comparar com o LEIA-ME.txt.
@@ -108,7 +108,7 @@ gerar_conferencia <- function(dados) {
     mutate(ano = factor(ano))
 }
 
-# 4. Resumos da Lista 03 
+# 4. Resumos da Lista 03
 
 # Por unidade, nos três anos: meses com registro, total e média mensal da
 # medida relativa, da maior média para a menor.
@@ -146,7 +146,7 @@ resumir_cat_ano <- function(dados) {
     pivot_wider(names_from = ano, values_from = total)
 }
 
-# 5. Resumos do relatório 
+# 5. Resumos do relatório
 
 # Média mensal da medida relativa, por ano e mês (figura de sazonalidade).
 resumir_sazonal <- function(dados) {
@@ -186,7 +186,7 @@ resumir_ano <- function(dados) {
     mutate(ano = factor(ano))
 }
 
-# 6. Figuras 
+# 6. Figuras
 
 grafico_sazonal <- function(resumo_sazonal) {
   ggplot(
@@ -212,7 +212,7 @@ grafico_categorias <- function(dados) {
     theme_minimal()
 }
 
-# 7. Modelo (opcional) 
+# 7. Modelo (opcional)
 
 # Os valores são produto de efeitos; no logaritmo, eles se somam.
 ajustar_modelo <- function(dados) {
