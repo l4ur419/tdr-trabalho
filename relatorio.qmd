@@ -1,0 +1,185 @@
+---
+title: "Leite entregue pelas fazendas de uma cooperativa"
+author: "Laura Nicoletti"
+lang: pt-BR
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r}
+#| label: carrega
+targets::tar_load(c(
+  login, cadastro, sem_medicao, conferencia,
+  resumo_unidade, resumo_categoria, resumo_cat_ano,
+  resumo_mes, resumo_anual,
+  fig_sazonal, fig_categorias, efeito_ano
+))
+
+# Formata um número com vírgula decimal e ponto de milhar.
+num <- function(x, digitos = 1) {
+  format(round(x, digitos), nsmall = digitos, trim = TRUE,
+         big.mark = ".", decimal.mark = ",")
+}
+
+# Tabela com os números reais em duas casas decimais, no formato brasileiro.
+tabela <- function(x, ...) {
+  alinhamento <- ifelse(vapply(x, is.numeric, logical(1)), "r", "l")
+  x[] <- lapply(x, function(coluna) {
+    if (is.double(coluna)) num(coluna, 2) else coluna
+  })
+  knitr::kable(x, align = alinhamento, ...)
+}
+```
+
+## Os dados
+
+Os dados são simulados, sorteados para o login `` `r login` `` do GitHub, e
+tratam do leite entregue pelas fazendas de uma cooperativa em 2023, 2024 e
+2025. O cadastro tem `r nrow(cadastro)` fazendas, das quais uma não tem
+medição em ano algum: `r sem_medicao$nome` (código `r sem_medicao$codigo`).
+A medida relativa usada nas comparações é o leite do mês dividido pelo número
+de vacas da fazenda. Como o leite está registrado em milhares de litros, a
+medida relativa está em mil litros por vaca.
+
+A @tbl-conferencia confere a leitura contra o `LEIA-ME.txt`: em cada ano, o
+número de fazendas com medição, as linhas da tabela arrumada (uma por fazenda
+e mês), os meses sem registro e a soma dos valores registrados.
+
+```{r}
+#| label: tbl-conferencia
+#| tbl-cap: >-
+#|   Conferência da leitura, por ano: fazendas com medição, linhas da
+#|   tabela arrumada, meses sem registro e soma do leite registrado, em
+#|   mil litros.
+tabela(
+  conferencia,
+  col.names = c("Ano", "Fazendas", "Linhas", "Meses sem registro",
+                "Soma (mil litros)")
+)
+```
+
+**Meses sem registro.** Um mês sem registro foi tratado como dado ausente, e
+não como produção zero: a falta de registro não indica que a fazenda deixou
+de produzir. Por isso, somas e médias ignoram esses meses (`na.rm = TRUE`).
+A decisão afeta as colunas de total e de média da medida relativa, mas não
+afeta a contagem de meses com registro, que apenas verifica se o mês foi
+preenchido. Nos três anos há `r sum(conferencia$meses_sem_registro)` meses
+sem registro.
+
+## Sazonalidade
+
+A @fig-sazonal mostra a média mensal de mil litros por vaca em cada ano.
+
+```{r}
+#| label: fig-sazonal
+#| fig-cap: >-
+#|   Média mensal de mil litros por vaca, com uma linha para cada ano.
+fig_sazonal
+```
+
+Com os três anos juntos, o mês de maior média é
+`r resumo_mes$mes[which.max(resumo_mes$media_relativa)]`, com
+`r num(max(resumo_mes$media_relativa), 2)` mil litros por vaca, e o de menor
+média é `r resumo_mes$mes[which.min(resumo_mes$media_relativa)]`, com
+`r num(min(resumo_mes$media_relativa), 2)` mil litros por vaca.
+
+## Variação entre 2023 e 2025
+
+```{r}
+#| label: variacao
+primeiro <- resumo_anual[1, ]
+ultimo <- resumo_anual[nrow(resumo_anual), ]
+variacao <- 100 * (ultimo$media_relativa / primeiro$media_relativa - 1)
+```
+
+A @tbl-anual resume cada ano. A média mensal de mil litros por vaca passou de
+`r num(primeiro$media_relativa, 2)` em `r primeiro$ano` para
+`r num(ultimo$media_relativa, 2)` em `r ultimo$ano`, uma variação de
+`r num(variacao, 1)`%.
+
+A comparação usa a média da medida relativa, e não o total, porque o total
+soma apenas os meses registrados: um ano com mais meses sem registro teria
+total menor sem que a produção tivesse caído. O total também depende do
+tamanho dos rebanhos. A média da medida relativa considera só os meses
+registrados e desconta o porte de cada fazenda.
+
+```{r}
+#| label: tbl-anual
+#| tbl-cap: >-
+#|   Resumo por ano: fazendas com medição, meses com e sem registro, total
+#|   de leite e média mensal da medida relativa, em mil litros e em mil
+#|   litros por vaca.
+tabela(
+  resumo_anual,
+  col.names = c("Ano", "Fazendas", "Meses com registro",
+                "Meses sem registro", "Total (mil litros)",
+                "Mil litros por vaca")
+)
+```
+
+## Diferenças entre sistemas
+
+A @fig-categorias mostra a distribuição de mil litros por vaca em cada
+sistema, e
+a @tbl-categoria traz as médias. O sistema com a maior média é
+`r resumo_categoria$sistema[which.max(resumo_categoria$media_relativa)]`
+(`r num(max(resumo_categoria$media_relativa), 2)` mil litros por vaca), e o de
+menor média é
+`r resumo_categoria$sistema[which.min(resumo_categoria$media_relativa)]`
+(`r num(min(resumo_categoria$media_relativa), 2)` mil litros por vaca).
+
+```{r}
+#| label: fig-categorias
+#| fig-cap: >-
+#|   Distribuição de mil litros por vaca no mês, em cada sistema, com os três
+#|   anos juntos.
+fig_categorias
+```
+
+```{r}
+#| label: tbl-categoria
+#| tbl-cap: >-
+#|   Resumo por sistema, nos três anos: número de fazendas, total de leite
+#|   (mil litros) e média mensal de mil litros por vaca.
+tabela(
+  resumo_categoria,
+  col.names = c("Sistema", "Fazendas", "Total (mil litros)",
+                "Mil litros por vaca")
+)
+```
+
+## Tabelas da Lista 03
+
+A @tbl-unidade resume cada fazenda nos três anos, da maior média de mil
+litros por vaca para a menor, e a @tbl-cat-ano traz o total de cada sistema em cada
+ano.
+
+```{r}
+#| label: tbl-unidade
+#| tbl-cap: >-
+#|   Resumo por fazenda, nos três anos: meses com registro, total de leite
+#|   (mil litros) e média mensal de mil litros por vaca.
+tabela(
+  resumo_unidade,
+  col.names = c("Código", "Fazenda", "Sistema", "Meses com registro",
+                "Total (mil litros)", "Mil litros por vaca")
+)
+```
+
+```{r}
+#| label: tbl-cat-ano
+#| tbl-cap: "Total de leite de cada sistema em cada ano, em mil litros."
+tabela(resumo_cat_ano, col.names = c("Sistema", names(resumo_cat_ano)[-1]))
+```
+
+## Modelo (opcional)
+
+Ajustando `log(litros_por_vaca) ~ ano + mes + sistema`, a variação anual
+estimada é de `r num(100 * efeito_ano$variacao, 1)`% ao ano, com intervalo
+de confiança de 95% de `r num(100 * efeito_ano$inferior, 1)`% a
+`r num(100 * efeito_ano$superior, 1)`%.

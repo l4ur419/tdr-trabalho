@@ -1,0 +1,40 @@
+on:
+  push:
+    branches: [main, trabalho]
+  pull_request:
+  workflow_dispatch:
+
+name: relatorio.yaml
+
+permissions: read-all
+
+jobs:
+  relatorio:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # Lista impressa por renv::sysreqs(distro = "ubuntu:24.04") para este
+      # projeto.
+      - name: Instala as bibliotecas do sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglpk-dev libicu-dev libx11-dev \
+            libxml2-dev make pandoc
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: renv
+
+      - uses: r-lib/actions/setup-renv@v2
+
+      - name: Executa o pipeline
+        run: targets::tar_make()
+        shell: Rscript {0}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: relatorio
+          path: relatorio.html
